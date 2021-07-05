@@ -16,6 +16,7 @@ EXTRA_CFLAGS += -Wno-unused-function
 #EXTRA_CFLAGS += -Wno-uninitialized
 #EXTRA_CFLAGS += -Wno-vla
 #EXTRA_CFLAGS += -Wno-implicit-fallthrough
+#EXTRA_CFLAGS += -Wno-return-type
 
 GCC_VER_49 := $(shell echo `$(CC) -dumpversion | cut -f1-2 -d.` \>= 4.9 | bc )
 ifeq ($(GCC_VER_49),1)
@@ -55,6 +56,7 @@ CONFIG_GSPI_HCI = n
 CONFIG_LED_CONTROL = y
 CONFIG_LED_ENABLE = y
 ########################## Features ###########################
+CONFIG_NET_NS = y
 CONFIG_MP_INCLUDED = y
 CONFIG_POWER_SAVING = n
 CONFIG_IPS_MODE = default
@@ -92,18 +94,20 @@ CONFIG_ICMP_VOQ = n
 CONFIG_IP_R_MONITOR = n #arp VOQ and high rate
 # user priority mapping rule : tos, dscp
 CONFIG_RTW_UP_MAPPING_RULE = tos
-# Enable VHT rate on 2.4G channel or not
+# enable VHT rate on 2.4G channel or not
 CONFIG_RTW_VHT_2G4 = y
+# necessary for WPA3 support
+CONFIG_GTK_OL = y
 
 ########################## Debug ###########################
-CONFIG_DISABLE_PHYDM_DEBUG_FUNCTION = y
 CONFIG_RTW_DEBUG = y
 # default log level is _DRV_INFO_ = 4,
 # please refer to "How_to_set_driver_debug_log_level.doc" to set the available level.
 CONFIG_RTW_LOG_LEVEL = 0
 
 # enable /proc/net/rtlxxxx/ debug interfaces
-CONFIG_PROC_DEBUG = y
+CONFIG_PROC_DEBUG = n
+CONFIG_DISABLE_PHYDM_DEBUG_FUNCTION = y
 
 ######################## Wake On Lan ##########################
 CONFIG_WOWLAN = n
@@ -114,8 +118,6 @@ CONFIG_WOW_LPS_MODE = default
 CONFIG_SUSPEND_TYPE = 0
 CONFIG_WOW_STA_MIX = n
 CONFIG_GPIO_WAKEUP = n
-# Please contact with RTK support team first. After getting the agreement from RTK support team,
-# you are just able to modify the CONFIG_WAKEUP_GPIO_IDX with customized requirement.
 CONFIG_WAKEUP_GPIO_IDX = default
 CONFIG_HIGH_ACTIVE_DEV2HST = n
 ######### only for USB #########
@@ -1318,6 +1320,11 @@ else
 EXTRA_CFLAGS += -DRTW_VHT_2G4=0
 endif
 
+# necessary for WPA3 support
+ifeq ($(CONFIG_GTK_OL), y)
+EXTRA_CFLAGS += -DCONFIG_GTK_OL
+endif
+
 ifeq ($(CONFIG_PLATFORM_I386_PC), y)
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
@@ -1330,6 +1337,8 @@ MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless/
 INSTALL_PREFIX :=
 STAGINGMODDIR := /lib/modules/$(KVER)/kernel/drivers/staging
 endif
+
+### START RASPBERRY PI OS SUPPORT
 
 ifeq ($(CONFIG_PLATFORM_ARM_RPI), y)
 EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE
@@ -1348,6 +1357,7 @@ ifeq ($(CONFIG_PLATFORM_ARM64_RPI), y)
 EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
+EXTRA_CFLAGS += -DPLATFORM_LINUX
 EXTRA_CFLAGS += -fno-stack-protector
 ARCH ?= arm64
 CROSS_COMPILE ?=
@@ -1356,6 +1366,8 @@ KSRC := /lib/modules/$(KVER)/build
 MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless/
 INSTALL_PREFIX :=
 endif
+
+### END RASPBERRY PI OS SUPPORT
 
 ifeq ($(CONFIG_PLATFORM_NV_TK1), y)
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_NV_TK1
@@ -2489,4 +2501,3 @@ clean:
 	rm -fr *.mod.c *.mod *.o .*.cmd *.ko *~
 	rm -fr .tmp_versions *.ur-safe
 endif
-

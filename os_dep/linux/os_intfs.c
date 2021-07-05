@@ -200,7 +200,7 @@ int rtw_uapsd_ac_enable = 0x0;
 	/*PHYDM API, must enable by default*/
 	int rtw_pwrtrim_enable = 1;
 #else
-	int rtw_pwrtrim_enable = 0; /* Default Enalbe  power trim by efuse config */
+	int rtw_pwrtrim_enable = 0; /* Default Enable power trim by efuse config */
 #endif
 
 #if CONFIG_TX_AC_LIFETIME
@@ -1930,6 +1930,10 @@ int rtw_os_ndev_register(_adapter *adapter, const char *name)
 
 	_rtw_memcpy(ndev->dev_addr, adapter_mac_addr(adapter), ETH_ALEN);
 
+	#ifdef CONFIG_NET_NS
+		dev_net_set(ndev, wiphy_net(adapter_to_wiphy(adapter)));
+	#endif //CONFIG_NET_NS
+
 	/* Tell the network stack we exist */
 
 	if (rtnl_lock_needed)
@@ -1971,10 +1975,6 @@ void rtw_os_ndev_unregister(_adapter *adapter)
 
 	netdev = adapter->pnetdev;
 
-#if defined(CONFIG_IOCTL_CFG80211)
-	rtw_cfg80211_ndev_res_unregister(adapter);
-#endif
-
 	if ((adapter->DriverState != DRIVER_DISAPPEAR) && netdev) {
 		struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 		u8 rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
@@ -1984,6 +1984,10 @@ void rtw_os_ndev_unregister(_adapter *adapter)
 		else
 			unregister_netdevice(netdev);
 	}
+
+#if defined(CONFIG_IOCTL_CFG80211)
+	rtw_cfg80211_ndev_res_unregister(adapter);
+#endif
 
 #if defined(CONFIG_IOCTL_CFG80211) && !defined(RTW_SINGLE_WIPHY)
 #ifdef CONFIG_RFKILL_POLL
@@ -2602,7 +2606,6 @@ u8 rtw_init_drv_sw(_adapter *padapter)
 		struct hal_spec_t *hal_spec = GET_HAL_SPEC(padapter);
 
 		dvobj->macid_ctl.num = rtw_min(hal_spec->macid_num, MACID_NUM_SW_LIMIT);
-
 		dvobj->macid_ctl.macid_cap = hal_spec->macid_cap;
 		dvobj->macid_ctl.macid_txrpt = hal_spec->macid_txrpt;
 		dvobj->macid_ctl.macid_txrpt_pgsz = hal_spec->macid_txrpt_pgsz;
@@ -4266,7 +4269,9 @@ static int route_dump(u32 *gw_addr , int *gw_index)
 	struct msghdr msg;
 	struct iovec iov;
 	struct sockaddr_nl nladdr;
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 	mm_segment_t oldfs;
+	#endif
 	char *pg;
 	int size = 0;
 
@@ -4305,14 +4310,18 @@ static int route_dump(u32 *gw_addr , int *gw_index)
 	msg.msg_controllen = 0;
 	msg.msg_flags = MSG_DONTWAIT;
 
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+	#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 	err = sock_sendmsg(sock, &msg);
 #else
 	err = sock_sendmsg(sock, &msg, sizeof(req));
 #endif
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 	set_fs(oldfs);
+	#endif
 
 	if (err < 0)
 		goto out_sock;
@@ -4337,14 +4346,18 @@ restart:
 		iov_iter_init(&msg.msg_iter, READ, &iov, 1, PAGE_SIZE);
 #endif
 
+		#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
+		#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
 		err = sock_recvmsg(sock, &msg, MSG_DONTWAIT);
 #else
 		err = sock_recvmsg(sock, &msg, PAGE_SIZE, MSG_DONTWAIT);
 #endif
+		#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 		set_fs(oldfs);
+		#endif
 
 		if (err < 0)
 			goto out_sock_pg;
@@ -4415,14 +4428,18 @@ done:
 		msg.msg_controllen = 0;
 		msg.msg_flags = MSG_DONTWAIT;
 
+		#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
+		#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 		err = sock_sendmsg(sock, &msg);
 #else
 		err = sock_sendmsg(sock, &msg, sizeof(req));
 #endif
+		#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 		set_fs(oldfs);
+		#endif
 
 		if (err > 0)
 			goto restart;
